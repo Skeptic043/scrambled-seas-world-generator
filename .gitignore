@@ -1,0 +1,13 @@
+# Local workflow
+AGENTS.md
+.agents/
+.codex/
+.claude/
+.local/
+PLAN.md
+HANDOFF.md
+
+# Downloads and OS files
+*.zip
+Thumbs.db
+.DS_Store
