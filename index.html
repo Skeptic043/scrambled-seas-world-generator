@@ -285,8 +285,8 @@
           ? " Trimmed to fit the area limits."
           : input.worldScale === 1 ? " Same as Scrambled Seas' normal world." : "") +
         (result.spacingLimited ? ` Spacing held at ${result.spacingScale.toFixed(1)}x so the archipelagos fit.` : "");
-      $("stats").textContent = `${G.OCCUPIED_ARCHIPELAGOS.length} archipelagos with islands, typically ${sizes.typicalDeg.toFixed(1)}° ` +
-        `from their nearest neighbour and never closer than ${sizes.archSepDeg.toFixed(1)}°.`;
+      $("stats").textContent = `${G.OCCUPIED_ARCHIPELAGOS.length} occupied archipelagos, with centres typically ${sizes.typicalDeg.toFixed(1)}° ` +
+        `apart from their nearest occupied neighbour and a minimum centre-to-centre separation of ${sizes.archSepDeg.toFixed(1)}°.`;
     } else {
       $("worldHint").textContent = "";
       $("stats").textContent = "";
