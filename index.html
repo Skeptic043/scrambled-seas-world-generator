@@ -5,64 +5,86 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Scrambled Seas World Generator</title>
 <style>
+  /* Map colours follow the Okabe–Ito colour-blind-safe palette (blue for the world, orange for islands), and every
+     map feature also differs by shape or line style, so nothing relies on colour alone. */
   :root {
+    color-scheme: light;
     --bg: #f6f4ef; --panel: #ffffff; --text: #1d232b; --muted: #5b6672; --line: #d5d9de;
     --accent: #1f6f8b; --accent-text: #ffffff; --error: #a3261f;
-    --sea: #dbe8ef; --area: rgba(31, 111, 139, 0.18); --area-line: #1f6f8b; --inset: #1f6f8b;
-    --vanilla: #8a6d1f; --arch: #c2552b; --island: #7a3315;
+    --sea: #dfeaf1; --grid: #c6d6e0; --limits: #1d232b; --world: rgba(0, 114, 178, 0.14); --world-line: #0072b2;
+    --vanilla: #5b6672; --island: #d55e00;
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
+      color-scheme: dark;
       --bg: #12161b; --panel: #1b2128; --text: #e4e8ec; --muted: #9aa5b1; --line: #313a44;
       --accent: #4fa6c4; --accent-text: #0c1115; --error: #f08a80;
-      --sea: #17303d; --area: rgba(79, 166, 196, 0.22); --area-line: #4fa6c4; --inset: #4fa6c4;
-      --vanilla: #d7b75a; --arch: #f08a5d; --island: #ffc2a3;
+      --sea: #16303d; --grid: #24465a; --limits: #e4e8ec; --world: rgba(86, 180, 233, 0.18); --world-line: #56b4e9;
+      --vanilla: #c9d1d9; --island: #e69f00;
     }
   }
   :root[data-theme="dark"] {
+    color-scheme: dark;
     --bg: #12161b; --panel: #1b2128; --text: #e4e8ec; --muted: #9aa5b1; --line: #313a44;
     --accent: #4fa6c4; --accent-text: #0c1115; --error: #f08a80;
-    --sea: #17303d; --area: rgba(79, 166, 196, 0.22); --area-line: #4fa6c4; --inset: #4fa6c4;
-    --vanilla: #d7b75a; --arch: #f08a5d; --island: #ffc2a3;
+    --sea: #16303d; --grid: #24465a; --limits: #e4e8ec; --world: rgba(86, 180, 233, 0.18); --world-line: #56b4e9;
+    --vanilla: #c9d1d9; --island: #e69f00;
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
-  main { max-width: 960px; margin: 0 auto; padding: 24px 16px 48px; }
+  main { max-width: 1000px; margin: 0 auto; padding: 24px 16px 48px; }
   h1 { font-size: 1.5rem; margin: 0 0 4px; }
   .lede { color: var(--muted); margin: 0 0 20px; }
-  .layout { display: grid; grid-template-columns: minmax(0, 320px) minmax(0, 1fr); gap: 20px; align-items: start; }
+  .layout { display: grid; grid-template-columns: minmax(0, 340px) minmax(0, 1fr); gap: 20px; align-items: start; }
   @media (max-width: 760px) { .layout { grid-template-columns: minmax(0, 1fr); } }
   .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px; }
-  fieldset { border: 0; padding: 0; margin: 0 0 16px; }
+  .views { position: sticky; top: 16px; }
+  @media (max-width: 760px) { .views { position: static; } }
+  fieldset { border: 0; padding: 0; margin: 0 0 18px; min-width: 0; }
   legend { font-weight: 600; margin-bottom: 8px; padding: 0; }
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   label { display: block; font-size: 0.85rem; color: var(--muted); }
-  input[type="number"] { width: 100%; margin-top: 2px; padding: 6px 8px; font: inherit; color: var(--text);
+  input[type="number"], select { width: 100%; margin-top: 2px; padding: 6px 8px; font: inherit; color: var(--text);
     background: var(--bg); border: 1px solid var(--line); border-radius: 6px; }
   input[type="range"] { width: 100%; accent-color: var(--accent); }
+  input[type="range"]:disabled { opacity: 0.45; }
   .hint { font-size: 0.8rem; color: var(--muted); margin: 2px 0 0; }
-  .slider-row { margin-bottom: 10px; }
-  .slider-head { display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--muted); }
-  .slider-head output { color: var(--text); font-variant-numeric: tabular-nums; }
+  .slider-row { margin-bottom: 12px; }
+  .slider-head { display: flex; flex-wrap: wrap; gap: 2px 10px; align-items: baseline; font-size: 0.85rem; color: var(--muted); }
+  .slider-head .name { flex: 1; }
+  .slider-head output { color: var(--text); font-variant-numeric: tabular-nums; margin-left: auto; text-align: right; }
+  .opt { display: inline-flex; gap: 4px; align-items: center; font-size: 0.78rem; color: var(--muted); cursor: pointer; }
+  .opt input { accent-color: var(--accent); margin: 0; }
   label.check { display: flex; gap: 8px; align-items: center; color: var(--text); font-size: 0.9rem; margin-top: 8px; }
   label.check input { accent-color: var(--accent); margin: 0; }
-  #closeup { max-width: 240px; }
-  .caption { font-size: 0.8rem; color: var(--muted); margin: 6px 0 0; }
-  .seed-row { display: flex; gap: 8px; align-items: end; }
-  .seed-row label { flex: 1; }
+  .row { display: flex; gap: 8px; align-items: end; }
+  .row > label, .row > select { flex: 1; }
   button { font: inherit; border-radius: 6px; padding: 7px 12px; cursor: pointer; border: 1px solid var(--line);
     background: var(--bg); color: var(--text); }
-  button.primary { width: 100%; background: var(--accent); color: var(--accent-text); border-color: var(--accent); font-weight: 600; padding: 10px; }
+  button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); font-weight: 600; padding: 10px; }
   button:disabled { opacity: 0.5; cursor: not-allowed; }
+  details.advanced { border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); margin: 0 0 18px; padding: 10px 0; }
+  details.advanced summary { cursor: pointer; font-weight: 600; }
+  details.advanced summary .count { font-weight: 400; color: var(--muted); font-size: 0.85rem; }
+  details.advanced[open] summary { margin-bottom: 12px; }
+  details.advanced fieldset:last-of-type { margin-bottom: 12px; }
+  .actions { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
   .errors { color: var(--error); font-size: 0.85rem; margin: 10px 0 0; padding-left: 18px; }
   .errors:empty { display: none; }
   .note { font-size: 0.85rem; color: var(--muted); margin: 12px 0 0; }
+  .status { font-size: 0.85rem; color: var(--muted); margin: 8px 0 0; }
+  .status:empty { display: none; }
   svg { display: block; width: 100%; height: auto; }
-  .views { display: grid; gap: 14px; }
-  .view-title { font-size: 0.85rem; font-weight: 600; margin: 0 0 6px; }
+  .view-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin: 0 0 6px; }
+  .view-title { font-size: 0.85rem; font-weight: 600; margin: 0; }
   .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 0.8rem; color: var(--muted); margin: 8px 0 0; padding: 0; list-style: none; }
-  .legend span { display: inline-block; width: 12px; height: 12px; border-radius: 2px; margin-right: 5px; vertical-align: -2px; }
-  .stats { font-size: 0.85rem; color: var(--muted); margin: 0; }
+  .legend li { display: inline-flex; align-items: center; gap: 5px; }
+  .legend li[hidden] { display: none; }
+  .legend svg { width: 22px; height: 14px; flex: none; }
+  .below { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 16px; margin-top: 14px; align-items: start; }
+  @media (max-width: 520px) { .below { grid-template-columns: minmax(0, 1fr); } #closeup { max-width: 220px; } }
+  .caption { font-size: 0.8rem; color: var(--muted); margin: 6px 0 0; }
+  .stats { font-size: 0.85rem; color: var(--muted); margin: 0 0 8px; }
   code { font-size: 0.85em; }
   .footer { margin-top: 24px; font-size: 0.85rem; color: var(--muted); }
   .footer a { color: var(--accent); }
@@ -71,10 +93,19 @@
 <body>
 <main>
   <h1>Scrambled Seas World Generator</h1>
-  <p class="lede">Make a Scrambled Seas world file at any size up to the whole globe, like the in-game world scale but bigger. Requires Border Expander.</p>
+  <p class="lede">Make a Scrambled Seas world file at any size up to the whole globe, or roll one from a scenario. Border Expander is highly recommended.</p>
 
   <div class="layout">
     <form class="panel" id="form" novalidate>
+      <fieldset>
+        <legend>Scenario</legend>
+        <div class="row">
+          <select id="scenario" aria-label="Scenario"><option value="">Custom</option></select>
+          <button type="button" id="roll">Roll</button>
+        </div>
+        <p class="hint" id="scenarioHint"></p>
+      </fieldset>
+
       <fieldset>
         <legend>Area limits (degrees)</legend>
         <div class="grid2">
@@ -89,53 +120,95 @@
       <fieldset>
         <legend>Scale</legend>
         <div class="slider-row">
-          <div class="slider-head"><span>World scale</span><output id="worldScaleOut"></output></div>
-          <input type="range" id="worldScale" min="1" max="8.2" step="0.1" value="1">
+          <div class="slider-head"><span class="name">World scale</span><label class="opt"><input type="checkbox" id="lock-worldScale"> Lock</label><output id="worldScaleOut"></output></div>
+          <input type="range" id="worldScale" min="0.5" max="8.2" step="0.1" value="1" aria-label="World scale">
           <p class="hint" id="worldHint"></p>
-          <label class="check"><input type="checkbox" id="even"> Spread archipelagos out evenly</label>
-          <p class="hint">Keeps archipelagos further apart so they don't bunch up. Distances still vary.</p>
         </div>
         <div class="slider-row">
-          <div class="slider-head"><span>Island spread</span><output id="islandScaleOut"></output></div>
-          <input type="range" id="islandScale" min="0.5" max="5.4" step="0.1" value="1">
-          <p class="hint">Up to 5.4x, which keeps every island inside the world bounds.</p>
+          <div class="slider-head"><span class="name">Island spread</span><label class="opt"><input type="checkbox" id="lock-islandScale"> Lock</label><output id="islandScaleOut"></output></div>
+          <input type="range" id="islandScale" min="0.5" max="5.4" step="0.1" value="1" aria-label="Island spread">
+          <p class="hint">How far an archipelago's islands spread from its centre.</p>
         </div>
       </fieldset>
+
+      <details class="advanced" id="advanced">
+        <summary>More settings <span class="count" id="advancedCount"></span></summary>
+        <fieldset>
+          <legend>World</legend>
+          <div class="slider-row">
+            <div class="slider-head"><span class="name">Shape</span><label class="opt"><input type="checkbox" id="auto-aspect" checked> Auto</label><label class="opt"><input type="checkbox" id="lock-aspect"> Lock</label><output id="aspectOut"></output></div>
+            <input type="range" id="aspect" min="-1.2" max="2.89" step="0.01" value="0.38" aria-label="World shape">
+            <p class="hint">Width to height. Auto is the normal 44:30. The world is never smaller than 22° by 15°.</p>
+          </div>
+          <div class="slider-row">
+            <div class="slider-head"><span class="name">Centre</span><label class="opt"><input type="checkbox" id="auto-center" checked> Auto</label><label class="opt"><input type="checkbox" id="lock-center"> Lock</label><output id="centerOut"></output></div>
+            <input type="range" id="centerLon" min="-180" max="180" step="1" value="10" aria-label="World centre longitude">
+            <input type="range" id="centerLat" min="-70" max="70" step="1" value="36" aria-label="World centre latitude">
+          </div>
+        </fieldset>
+        <fieldset>
+          <legend>Spacing</legend>
+          <div class="slider-row">
+            <div class="slider-head"><span class="name">Archipelagos</span><label class="opt"><input type="checkbox" id="auto-archSpacing" checked> Auto</label><label class="opt"><input type="checkbox" id="lock-archSpacing"> Lock</label><output id="archSpacingOut"></output></div>
+            <input type="range" id="archSpacing" min="0.3" max="1.2" step="0.1" value="1" aria-label="Archipelago spacing">
+            <p class="hint">The closest two archipelago centres can be.</p>
+          </div>
+          <div class="slider-row">
+            <div class="slider-head"><span class="name">Islands</span><label class="opt"><input type="checkbox" id="auto-islandSpacing" checked> Auto</label><label class="opt"><input type="checkbox" id="lock-islandSpacing"> Lock</label><output id="islandSpacingOut"></output></div>
+            <input type="range" id="islandSpacing" min="0.5" max="1" step="0.1" value="1" aria-label="Island spacing">
+            <p class="hint">The closest two islands in an archipelago can be.</p>
+          </div>
+        </fieldset>
+        <fieldset>
+          <legend>Seed rules</legend>
+          <label class="check"><input type="checkbox" id="keepApart" checked> Keep islands of different archipelagos apart</label>
+          <label style="margin-top: 8px">Start at least this far from other archipelagos (nm, optional) <input type="number" id="minStartNm" min="0" step="50" placeholder="Off"></label>
+        </fieldset>
+        <button type="button" id="resetAll">Reset to defaults</button>
+        <p class="hint">Resets every setting and lock. The seed stays.</p>
+      </details>
 
       <fieldset>
         <legend>Seed</legend>
-        <div class="seed-row">
+        <div class="row">
           <label>Seed <input type="number" id="seed" step="1"></label>
           <button type="button" id="reroll">New seed</button>
         </div>
-        <p class="hint">Share the seed and settings to share a world.</p>
+        <p class="status" id="seedStatus" aria-live="polite"></p>
       </fieldset>
 
-      <button type="submit" class="primary" id="generate">Generate XML</button>
+      <div class="actions">
+        <button type="submit" class="primary" id="generate">Generate XML</button>
+        <button type="button" id="copyLink">Copy link</button>
+      </div>
+      <p class="status" id="formStatus" aria-live="polite"></p>
       <ul class="errors" id="errors"></ul>
-      <p class="note">Put the file in the folder that contains <code>ScrambledSeas.dll</code>, then load it from the Scrambled Seas menu when starting a new game.</p>
+      <p class="note">Put the file in <code>BepInEx/plugins/ScrambledSeas</code>, then load it from the Scrambled Seas menu when starting a new game.</p>
     </form>
 
-    <section class="panel views" aria-label="World size preview">
-      <div>
-        <p class="view-title">World size</p>
-        <svg id="map" role="img" aria-label="Map of the world size"></svg>
-        <ul class="legend">
-          <li><span style="border: 1px solid var(--muted)"></span>Area limits</li>
-          <li><span style="background: var(--area); outline: 1px solid var(--area-line)"></span>World</li>
-          <li><span style="border: 1px dashed var(--inset)"></span>Where archipelagos can be placed</li>
-          <li><span style="border: 1px dashed var(--vanilla)"></span>Vanilla world</li>
-          <li><span style="background: var(--arch)"></span>Two neighbouring archipelagos, typical distance</li>
-          <li><span style="border: 1px dashed var(--text); border-radius: 50%"></span>Minimum distance</li>
-        </ul>
+    <section class="panel views" aria-label="World preview">
+      <div class="view-head">
+        <p class="view-title">World</p>
+        <label class="opt"><input type="checkbox" id="showReal"> Show real positions</label>
       </div>
-      <div>
-        <p class="view-title">One archipelago</p>
-        <svg id="closeup" role="img" aria-label="Close-up of one archipelago's island area"></svg>
-        <p class="caption" id="closeupCaption"></p>
+      <svg id="map" role="img" aria-label="Map of the world"></svg>
+      <ul class="legend">
+        <li><svg viewBox="0 0 22 14" aria-hidden="true"><rect x="1" y="1" width="20" height="12" fill="none" stroke="var(--limits)" stroke-width="1.2"/></svg>Area limits</li>
+        <li><svg viewBox="0 0 22 14" aria-hidden="true"><rect x="1" y="1" width="20" height="12" fill="var(--world)" stroke="var(--world-line)" stroke-width="1.5"/></svg>World</li>
+        <li><svg viewBox="0 0 22 14" aria-hidden="true"><rect x="1" y="1" width="20" height="12" fill="none" stroke="var(--world-line)" stroke-width="1.2" stroke-dasharray="3 2"/></svg>Where archipelagos can be placed</li>
+        <li><svg viewBox="0 0 22 14" aria-hidden="true"><rect x="1" y="1" width="20" height="12" fill="none" stroke="var(--vanilla)" stroke-width="1.5" stroke-dasharray="0.1 2.5" stroke-linecap="round"/></svg>Normal 1x world</li>
+        <li><svg viewBox="0 0 22 14" aria-hidden="true"><circle cx="6" cy="8" r="2.4" fill="var(--island)"/><circle cx="12" cy="5" r="2.4" fill="var(--island)"/><circle cx="16" cy="10" r="2.4" fill="var(--island)"/></svg>Islands</li>
+      </ul>
+      <p class="caption" id="mapNote"></p>
+      <div class="below">
+        <div>
+          <svg id="closeup" role="img" aria-label="Close-up of one archipelago's island area"></svg>
+          <p class="caption" id="closeupCaption"></p>
+        </div>
+        <div>
+          <p class="stats" id="stats"></p>
+        </div>
       </div>
-      <p class="stats" id="stats"></p>
-      <p class="note">This shows sizes only. Real positions come from the seed when Scrambled Seas builds the world.</p>
     </section>
   </div>
   <footer class="footer">
@@ -152,21 +225,136 @@
   const G = window.ScrambledSeasPreset;
   const $ = (id) => document.getElementById(id);
   const SVG_NS = "http://www.w3.org/2000/svg";
-  const fields = ["lonMin", "lonMax", "latMin", "latMax", "seed"];
+  const LIMIT_IDS = ["lonMin", "lonMax", "latMin", "latMax"];
+  // Each lockable setting: its slider(s), its Auto checkbox if it has one, and the input values it owns.
+  const LEVERS = {
+    worldScale: { name: "world scale", sliders: ["worldScale"], keys: ["worldScale"] },
+    islandScale: { name: "island spread", sliders: ["islandScale"], keys: ["islandScale"] },
+    aspect: { name: "shape", sliders: ["aspect"], auto: "auto-aspect", keys: ["aspect"] },
+    center: { name: "centre", sliders: ["centerLon", "centerLat"], auto: "auto-center", keys: ["centerLon", "centerLat"] },
+    archSpacing: { name: "archipelago spacing", sliders: ["archSpacing"], auto: "auto-archSpacing", keys: ["archSpacing"] },
+    islandSpacing: { name: "island spacing", sliders: ["islandSpacing"], auto: "auto-islandSpacing", keys: ["islandSpacing"] },
+  };
+  // Inputs that change the world by hand, which turns the scenario into Custom.
+  const WORLD_IDS = [...LIMIT_IDS, ...Object.values(LEVERS).flatMap((l) => [...l.sliders, l.auto].filter(Boolean))];
+  const DEFAULT_HINT = "Pick a scenario to roll a world.";
 
-  $("seed").value = G.randomSeed();
+  for (const s of G.SCENARIOS) $("scenario").append(new Option(s.name, s.id));
+
+  // Small per-browser conveniences; the page works the same without them.
+  const remember = {
+    get(key) { try { return localStorage.getItem(`ssw.${key}`); } catch (e) { return null; } },
+    set(key, value) { try { localStorage.setItem(`ssw.${key}`, value); } catch (e) { /* private mode */ } },
+  };
 
   function readNumber(id) {
     const raw = $(id).value.trim();
     return raw === "" ? NaN : Number(raw);
   }
+  const auto = (id) => $(`auto-${id}`).checked;
+  const locked = (lever) => $(`lock-${lever}`).checked;
+  const tenth = (v) => Math.round(v * 10) / 10;
+  const aspectValue = () => tenth(Math.exp(Number($("aspect").value)));
+
+  function readLimits() {
+    const limits = {};
+    for (const id of LIMIT_IDS) limits[id] = readNumber(id);
+    return limits;
+  }
   function readInput() {
-    const input = {};
-    for (const id of fields) input[id] = readNumber(id);
-    input.worldScale = Number($("worldScale").value);
-    input.even = $("even").checked;
-    input.islandScale = Number($("islandScale").value);
-    return input;
+    return {
+      ...readLimits(),
+      seed: readNumber("seed"),
+      worldScale: Number($("worldScale").value),
+      aspect: auto("aspect") ? null : aspectValue(),
+      centerLon: auto("center") ? null : Number($("centerLon").value),
+      centerLat: auto("center") ? null : Number($("centerLat").value),
+      archSpacing: auto("archSpacing") ? null : Number($("archSpacing").value),
+      islandScale: Number($("islandScale").value),
+      islandSpacing: auto("islandSpacing") ? null : Number($("islandSpacing").value),
+    };
+  }
+  function limitsValid(limits) {
+    const inRange = (v, key) => Number.isInteger(v) && v >= G.LIMITS[key][0] && v <= G.LIMITS[key][1];
+    return LIMIT_IDS.every((k) => inRange(limits[k], k)) &&
+      limits.lonMax - limits.lonMin >= G.MIN_LON_SPAN && limits.latMax - limits.latMin >= G.MIN_LAT_SPAN;
+  }
+
+  // Sets every control from settings in validate()'s shape. null means Auto.
+  function applyInput(input) {
+    for (const id of LIMIT_IDS) if (Number.isFinite(input[id])) $(id).value = input[id];
+    if (Number.isInteger(input.seed)) $("seed").value = input.seed;
+    $("auto-aspect").checked = input.aspect == null;
+    if (input.aspect != null) $("aspect").value = Math.log(input.aspect).toFixed(2);
+    $("auto-center").checked = input.centerLon == null && input.centerLat == null;
+    $("centerLon").value = input.centerLon != null ? input.centerLon : G.VANILLA_CENTER.lon;
+    $("centerLat").value = input.centerLat != null ? input.centerLat : G.VANILLA_CENTER.lat;
+    $("auto-archSpacing").checked = input.archSpacing == null;
+    $("auto-islandSpacing").checked = input.islandSpacing == null;
+    if (Number.isFinite(input.islandScale)) $("islandScale").value = input.islandScale;
+    // Slider ranges depend on the other values, so set them before the values that use them.
+    syncRanges();
+    if (Number.isFinite(input.worldScale)) $("worldScale").value = input.worldScale;
+    syncRanges();
+    if (input.archSpacing != null) $("archSpacing").value = input.archSpacing;
+    if (input.islandSpacing != null) $("islandSpacing").value = input.islandSpacing;
+    syncRanges();
+  }
+
+  // Slider limits follow the settings they depend on: world scale tops out where the world fills the limits,
+  // and both spacings top out at the most that fits. While Auto is on, a slider sits at the value Auto uses.
+  function syncRanges() {
+    const limits = readLimits();
+    if (limitsValid(limits)) {
+      const aspect = auto("aspect") ? null : aspectValue();
+      $("worldScale").max = G.ceilTenth(G.maxWorldScale(limits.lonMax - limits.lonMin, limits.latMax - limits.latMin, aspect)).toFixed(1);
+      const world = G.worldRect(limits, Number($("worldScale").value), aspect,
+        auto("center") ? null : { lon: Number($("centerLon").value), lat: Number($("centerLat").value) });
+      $("archSpacing").max = Math.max(G.ARCH_SPACING_MIN, Number(G.floorTenth(G.maxArchipelagoScale(world.lonMax - world.lonMin, world.latMax - world.latMin)))).toFixed(1);
+    }
+    $("islandSpacing").max = G.floorTenth(G.maxIslandSpacing(Number($("islandScale").value)));
+    $("islandSpacing").min = Math.min(G.ISLAND_SPACING_MIN, Number($("islandSpacing").max));
+    if (auto("islandSpacing")) $("islandSpacing").value = $("islandScale").value;
+    if (auto("archSpacing")) $("archSpacing").value = Math.min(Number($("worldScale").value), Number($("archSpacing").max));
+    for (const [id, lever] of Object.entries(LEVERS)) {
+      const isLocked = locked(id);
+      if (lever.auto) $(lever.auto).disabled = isLocked;
+      for (const s of lever.sliders) $(s).disabled = isLocked || (lever.auto ? $(lever.auto).checked : false);
+    }
+  }
+
+  // Locks. A locked setting keeps its value: its own controls are disabled, and a change elsewhere that would
+  // push it (a smaller world lowering the most spacing that fits, say) is undone.
+  let lockedValues = {};
+  const sameValue = (a, b) => (a ?? null) === (b ?? null) || (typeof a === "number" && typeof b === "number" && Math.abs(a - b) < 1e-9);
+  function brokenLock() {
+    const input = readInput();
+    return Object.keys(LEVERS).find((id) => locked(id) && lockedValues[id] && LEVERS[id].keys.some((k) => !sameValue(input[k], lockedValues[id][k])));
+  }
+  function captureLock(id) {
+    const input = readInput();
+    lockedValues[id] = Object.fromEntries(LEVERS[id].keys.map((k) => [k, input[k]]));
+  }
+  function onLockChange(id) {
+    const lever = LEVERS[id];
+    // Auto spacing moves with other settings, so locking it fixes it at its current value.
+    if (locked(id) && lever.auto && (id === "archSpacing" || id === "islandSpacing") && $(lever.auto).checked) {
+      $(lever.auto).checked = false;
+    }
+    if (locked(id)) captureLock(id); else delete lockedValues[id];
+    update();
+  }
+
+  const controls = () => [...$("form").elements].filter((e) => e.id && (e.tagName === "INPUT" || e.tagName === "SELECT"));
+  function snapshot() {
+    return controls().map((e) => [e.id, e.type === "checkbox" ? e.checked : e.value]);
+  }
+  function restore(state) {
+    // Ranges first, so restored values aren't clamped by the ranges of the rejected state.
+    for (const [id, v] of state) if (typeof v === "boolean") $(id).checked = v;
+    for (const [id, v] of state) if (typeof v !== "boolean") $(id).value = v;
+    syncRanges();
+    for (const [id, v] of state) if (typeof v !== "boolean") $(id).value = v;
   }
 
   function el(name, attrs, parent) {
@@ -176,141 +364,263 @@
     return node;
   }
 
-  // Map panel: the whole sailable globe, the vanilla world, the area limits, the world this file makes,
-  // and two neighbouring archipelagos at their typical distance with the minimum distance as a ring.
-  function drawMap(limits, world, sizes) {
+  // Map: the whole sailable globe, Scrambled Seas' normal 1x world, the area limits and the world this file makes, plus every island
+  // of the archipelagos that hold islands: where this seed puts them when real is set, otherwise an example layout.
+  function drawMap(limits, world, preset, placed, real) {
     const svg = $("map");
     svg.textContent = "";
     svg.setAttribute("viewBox", "-180 -70 360 140");
+    const k = 1; // line and dot sizes, in degrees
     const y = (lat) => -lat; // north up
     el("rect", { x: -180, y: -70, width: 360, height: 140, fill: "var(--sea)" }, svg);
-    for (let lon = -150; lon <= 150; lon += 30) el("line", { x1: lon, y1: -70, x2: lon, y2: 70, stroke: "var(--line)", "stroke-width": 0.3 }, svg);
-    for (let lat = -60; lat <= 60; lat += 30) el("line", { x1: -180, y1: y(lat), x2: 180, y2: y(lat), stroke: "var(--line)", "stroke-width": lat === 0 ? 0.6 : 0.3 }, svg);
-    el("rect", { x: -12, y: y(46), width: 44, height: 20, fill: "none", stroke: "var(--vanilla)", "stroke-width": 0.8, "stroke-dasharray": "2 1.5" }, svg);
+    const step = 30;
+    for (let lon = -180 + step; lon < 180; lon += step) el("line", { x1: lon, y1: -70, x2: lon, y2: 70, stroke: "var(--grid)", "stroke-width": 0.3 * k }, svg);
+    for (let lat = -70 + ((70 % step) || step); lat < 70; lat += step) el("line", { x1: -180, y1: y(lat), x2: 180, y2: y(lat), stroke: "var(--grid)", "stroke-width": (lat === 0 ? 0.7 : 0.3) * k }, svg);
     if (limits) {
       el("rect", { x: limits.lonMin, y: y(limits.latMax), width: limits.lonMax - limits.lonMin, height: limits.latMax - limits.latMin,
-        fill: "none", stroke: "var(--muted)", "stroke-width": 0.8 }, svg);
+        fill: "none", stroke: "var(--limits)", "stroke-width": 0.7 * k }, svg);
     }
-    if (!world) return;
+    if (world) {
+      const w = world.lonMax - world.lonMin, h = world.latMax - world.latMin;
+      el("rect", { x: world.lonMin, y: y(world.latMax), width: w, height: h, fill: "var(--world)", stroke: "var(--world-line)", "stroke-width": 0.9 * k }, svg);
+      const inset = G.BORDER_INSET_UNITS / G.UNITS_PER_DEGREE;
+      el("rect", { x: world.lonMin + inset, y: y(world.latMax - inset), width: w - 2 * inset, height: h - 2 * inset,
+        fill: "none", stroke: "var(--world-line)", "stroke-width": 0.6 * k, "stroke-dasharray": `${2 * k} ${1.4 * k}` }, svg);
+    }
+    // Scrambled Seas' own 1x world with Border Expander.
+    el("rect", { x: -12, y: y(51), width: 44, height: 30, fill: "none", stroke: "var(--vanilla)", "stroke-width": 0.9 * k,
+      "stroke-dasharray": `${0.01 * k} ${1.6 * k}`, "stroke-linecap": "round" }, svg);
+    if (!placed) return;
 
-    const w = world.lonMax - world.lonMin, h = world.latMax - world.latMin;
-    el("rect", { x: world.lonMin, y: y(world.latMax), width: w, height: h, fill: "var(--area)", stroke: "var(--area-line)", "stroke-width": 0.8 }, svg);
-    const inset = sizes.insetDeg;
-    el("rect", { x: world.lonMin + inset, y: y(world.latMax - inset), width: w - 2 * inset, height: h - 2 * inset,
-      fill: "none", stroke: "var(--inset)", "stroke-width": 0.5, "stroke-dasharray": "1.5 1.2" }, svg);
-    // Drawn to scale, but never smaller than a visible dot.
-    const cx = (world.lonMin + world.lonMax) / 2, cy = (world.latMin + world.latMax) / 2;
-    const gap = Math.min(sizes.typicalDeg, w - 2 * inset);
-    const half = Math.max(sizes.spreadDeg, 1.2);
-    el("circle", { cx: cx - gap / 2, cy: y(cy), r: sizes.archSepDeg, fill: "none", stroke: "var(--text)", "stroke-width": 0.5, "stroke-dasharray": "1.5 1.2" }, svg);
-    el("line", { x1: cx - gap / 2, y1: y(cy), x2: cx + gap / 2, y2: y(cy), stroke: "var(--text)", "stroke-width": 0.4 }, svg);
-    for (const dx of [-gap / 2, gap / 2]) {
-      el("rect", { x: cx + dx - half, y: y(cy) - half, width: 2 * half, height: 2 * half, fill: "var(--arch)" }, svg);
+    for (const a of G.OCCUPIED_ARCHIPELAGOS) {
+      const info = G.ARCHIPELAGO_ISLANDS[a], c = placed.archipelagos[a];
+      const g = el("g", {}, svg);
+      if (real) el("title", {}, g).textContent = `${info.name}: ${fmtLon(c.lon)} ${fmtLat(c.lat)}`;
+      for (let i = 0; i < info.islands.length; i++) {
+        const p = placed.islands[a][i];
+        el("circle", { cx: p.lon, cy: y(p.lat), r: 1.2 * k, fill: "var(--island)" }, g);
+      }
     }
   }
 
-  // Close-up panel: one archipelago with as many islands as the largest real one. The view always fits
-  // both the current island area and the 1x area, so changing the spread changes the square, not the dots.
-  function drawCloseup(sizes) {
+  // Close-up: one archipelago's island area against the 1x area, with the islands of the archipelago that has the most
+  // (Aestrin) from the same layout as the map. The view always fits both areas.
+  function drawCloseup(preset, placed) {
     const svg = $("closeup");
     svg.textContent = "";
     const W = 220, H = 220;
     svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
     el("rect", { x: 0, y: 0, width: W, height: H, fill: "var(--sea)", rx: 4 }, svg);
-    if (!sizes) return;
+    if (!preset) return;
 
-    const reference = G.DEFAULT_ISLAND_SPREAD, spread = sizes.spread;
+    const reference = G.DEFAULT_ISLAND_SPREAD, spread = preset.islandSpread;
     const scale = (W / 2 - 16) / Math.max(reference, spread);
     const c = W / 2;
-    el("rect", { x: c - reference * scale, y: c - reference * scale, width: 2 * reference * scale, height: 2 * reference * scale,
-      fill: "none", stroke: "var(--muted)", "stroke-width": 1, "stroke-dasharray": "3 3" }, svg);
     el("rect", { x: c - spread * scale, y: c - spread * scale, width: 2 * spread * scale, height: 2 * spread * scale,
-      fill: "var(--area)", stroke: "var(--arch)", "stroke-width": 1.5 }, svg);
-    for (const p of ISLAND_PATTERN) {
-      el("circle", { cx: c + p[0] * spread * scale, cy: c + p[1] * spread * scale, r: Math.max(2, Math.min(5, spread * scale * 0.06)), fill: "var(--island)" }, svg);
+      fill: "var(--world)", stroke: "var(--world-line)", "stroke-width": 1.5 }, svg);
+    el("rect", { x: c - reference * scale, y: c - reference * scale, width: 2 * reference * scale, height: 2 * reference * scale,
+      fill: "none", stroke: "var(--vanilla)", "stroke-width": 1.5, "stroke-dasharray": "0.1 4", "stroke-linecap": "round" }, svg);
+    if (!placed) return;
+    const a = G.LARGEST_ARCHIPELAGO, centre = placed.archipelagos[a];
+    const r = Math.max(2.5, Math.min(5, spread * scale * 0.06));
+    for (let i = 0; i < G.ARCHIPELAGO_ISLANDS[a].islands.length; i++) {
+      const p = placed.islands[a][i];
+      const dx = (p.lon - centre.lon) * G.UNITS_PER_DEGREE, dz = (p.lat - centre.lat) * G.UNITS_PER_DEGREE;
+      el("circle", { cx: c + dx * scale, cy: c - dz * scale, r, fill: "var(--island)" }, svg);
     }
   }
 
-  // A fixed, illustrative layout in a unit square: the largest real archipelago's island count, kept apart
-  // by the same ratio the game uses (1500 apart within ±5000).
-  const ISLAND_PATTERN = (() => {
-    let state = 12345;
-    const next = () => (state = (state * 1103515245 + 12345) % 2147483648) / 2147483648;
-    const minSep = G.DEFAULT_ISLAND_SEPARATION / G.DEFAULT_ISLAND_SPREAD;
-    const out = [];
-    for (let tries = 0; out.length < G.LARGEST_ARCHIPELAGO_ISLANDS && tries < 5000; tries++) {
-      const p = [next() * 2 - 1, next() * 2 - 1];
-      if (out.every((q) => Math.hypot(p[0] - q[0], p[1] - q[1]) >= minSep)) out.push(p);
-    }
-    return out;
-  })();
+  const fmtLon = (v) => `${Math.abs(Math.round(v))}°${v < 0 ? "W" : "E"}`;
+  const fmtLat = (v) => `${Math.abs(Math.round(v))}°${v < 0 ? "S" : "N"}`;
+  const nm = (deg) => Math.round(deg * G.NM_PER_DEGREE).toLocaleString("en");
+  const unitsNm = (units) => nm(units / G.UNITS_PER_DEGREE);
 
   let current = null;
+  let previewFrame = 0;
+
+  function scenarioId() { return $("scenario").value || null; }
+  const showReal = () => $("showReal").checked;
+  // The example layout uses a fixed seed of its own, so it shows the scale without giving away this seed's world.
+  const EXAMPLE_SEED = 20261115;
 
   function update() {
-    // The world scale slider's top end is where the world fills the area limits.
-    const limits = { lonMin: readNumber("lonMin"), lonMax: readNumber("lonMax"), latMin: readNumber("latMin"), latMax: readNumber("latMax") };
-    const inRange = (v, key) => Number.isInteger(v) && v >= G.LIMITS[key][0] && v <= G.LIMITS[key][1];
-    const limitsOk = Object.keys(limits).every((k) => inRange(limits[k], k)) &&
-      limits.lonMax - limits.lonMin >= G.MIN_LON_SPAN && limits.latMax - limits.latMin >= G.MIN_LAT_SPAN;
-    if (limitsOk) {
-      $("worldScale").max = G.ceilTenth(G.maxWorldScale(limits.lonMax - limits.lonMin, limits.latMax - limits.latMin)).toFixed(1);
-    }
-
+    clearTimeout(previewFrame);
+    syncRanges();
     const input = readInput();
     $("worldScaleOut").value = input.worldScale.toFixed(1) + "x";
+    const shape = aspectValue();
+    $("aspectOut").value = auto("aspect") ? "44:30" : shape >= 1 ? `${shape.toFixed(1)}:1` : `1:${(1 / shape).toFixed(1)}`;
+    $("centerOut").value = auto("center") ? "10°E 36°N" : `${fmtLon(Number($("centerLon").value))} ${fmtLat(Number($("centerLat").value))}`;
     $("islandScaleOut").value = input.islandScale.toFixed(1) + "x";
+    const changed = ["aspect", "center", "archSpacing", "islandSpacing"].filter((id) => !auto(id)).length;
+    $("advancedCount").textContent = changed ? `(${changed} changed)` : "";
 
+    const limits = readLimits();
     const result = G.validate(input);
     current = result.ok ? result.preset : null;
     $("errors").replaceChildren(...(result.ok ? [] : result.errors.map((e) => Object.assign(document.createElement("li"), { textContent: e }))));
-    $("generate").disabled = !result.ok;
+    $("generate").disabled = $("copyLink").disabled = !result.ok;
+    $("roll").disabled = !scenarioId();
+    $("archSpacingOut").value = result.ok ? `${result.archSpacing.toFixed(1)}x` : "";
+    $("islandSpacingOut").value = result.ok ? `${result.islandSpacing.toFixed(1)}x` : "";
 
-    let sizes = null;
     if (result.ok) {
       const p = result.preset, world = result.world;
       const lonSpan = world.lonMax - world.lonMin, latSpan = world.latMax - world.latMin;
-      const typical = G.typicalSpacing(lonSpan, latSpan, p.minArchipelagoSeparation);
-      sizes = {
-        spread: p.islandSpread,
-        typicalDeg: (Number.isFinite(typical) ? typical : p.minArchipelagoSeparation) / G.UNITS_PER_DEGREE,
-        archSepDeg: p.minArchipelagoSeparation / G.UNITS_PER_DEGREE,
-        spreadDeg: p.islandSpread / G.UNITS_PER_DEGREE,
-        insetDeg: G.BORDER_INSET_UNITS / G.UNITS_PER_DEGREE,
-      };
-      const fmt = (v, pos, neg) => `${Math.abs(v)}°${v < 0 ? neg : pos}`;
-      $("worldHint").textContent = `World ${lonSpan}° × ${latSpan}°, ${fmt(world.lonMin, "E", "W")} to ${fmt(world.lonMax, "E", "W")}, ` +
-        `${fmt(world.latMin, "N", "S")} to ${fmt(world.latMax, "N", "S")}.` +
-        (lonSpan < Math.round(G.WORLD_BASE.lon * input.worldScale) || latSpan < Math.round(G.WORLD_BASE.lat * input.worldScale)
-          ? " Trimmed to fit the area limits."
-          : input.worldScale === 1 ? " Same as Scrambled Seas' normal world." : "") +
-        (result.spacingLimited ? ` Spacing held at ${result.spacingScale.toFixed(1)}x so the archipelagos fit.` : "");
-      $("stats").textContent = `${G.OCCUPIED_ARCHIPELAGOS.length} occupied archipelagos, with centres typically ${sizes.typicalDeg.toFixed(1)}° ` +
-        `apart from their nearest occupied neighbour and a minimum centre-to-centre separation of ${sizes.archSepDeg.toFixed(1)}°.`;
+      $("worldHint").textContent = `World ${lonSpan}° × ${latSpan}°, ${fmtLon(world.lonMin)} to ${fmtLon(world.lonMax)}, ` +
+        `${fmtLat(world.latMin)} to ${fmtLat(world.latMax)}.` +
+        (!result.trimmed && input.worldScale === 1 && input.aspect == null && input.centerLon == null ? " Same as Scrambled Seas' normal world." : "") +
+        (result.spacingLimited ? ` Spacing held at ${result.archSpacing.toFixed(1)}x so the archipelagos fit.` : "");
+      try { history.replaceState(null, "", "#" + G.toLink(input, scenarioId())); } catch (e) { /* some browsers refuse on file:// */ }
+      drawMap(limits, world, p, null, false);
+      drawCloseup(p, null);
+      const spreadNm = unitsNm(2 * p.islandSpread);
+      $("closeupCaption").textContent = `Example archipelago island spread, within a ${spreadNm} nm square. Dotted: 1x.`;
+      $("stats").textContent = `Archipelago centres are never closer than ${unitsNm(p.minArchipelagoSeparation)} nm, ` +
+        `and islands in the same archipelago never closer than ${unitsNm(p.minIslandSeparation)} nm.`;
+      // Placing the islands takes a moment, so it runs after the rest of the page has updated.
+      previewFrame = setTimeout(() => drawIslands(limits, result, showReal()), 0);
     } else {
       $("worldHint").textContent = "";
       $("stats").textContent = "";
+      $("closeupCaption").textContent = "";
+      $("mapNote").textContent = "";
+      drawMap(limitsValid(limits) ? limits : null, null, null, null, false);
+      drawCloseup(null, null);
     }
-    drawMap(limitsOk ? limits : null, result.ok ? result.world : null, sizes);
-    drawCloseup(sizes);
-    $("closeupCaption").textContent = sizes
-      ? `Islands within ${(2 * sizes.spreadDeg).toFixed(2)}° square. Dashed: 1x (${(2 * G.DEFAULT_ISLAND_SPREAD / G.UNITS_PER_DEGREE).toFixed(2)}°).` : "";
+  }
+
+  function drawIslands(limits, result, real) {
+    const p = result.preset;
+    const placed = G.placeWorld(real ? p : { ...p, worldScramblerSeed: EXAMPLE_SEED }, 3000000);
+    $("mapNote").textContent = real ? "" : "An example layout at this size. Turn on Show real positions to see where this seed puts everything.";
+    if (!placed) {
+      $("stats").append(" This world takes too long to place in the page, so the islands aren't shown. The game will still build it.");
+      return;
+    }
+    drawMap(limits, result.world, p, placed, real);
+    drawCloseup(p, placed);
+    $("closeupCaption").textContent = `${real ? "Archipelago" : "Example archipelago"} island spread, within a ${unitsNm(2 * p.islandSpread)} nm square. Dotted: 1x.`;
+    const d = G.describeWorld(placed);
+    const stats = $("stats");
+    if (!real) {
+      stats.textContent = `Archipelago centres are never closer than ${unitsNm(p.minArchipelagoSeparation)} nm, ` +
+        `and islands in the same archipelago never closer than ${unitsNm(p.minIslandSeparation)} nm. ` +
+        `In a world like this, an archipelago's centre is typically about ${nm(d.nearestAverageDeg)} nm from its nearest neighbour's.`;
+      return;
+    }
+    stats.textContent = `${G.OCCUPIED_ARCHIPELAGOS.length} archipelagos with islands. Their centres are on average ${nm(d.nearestAverageDeg)} nm ` +
+      `from their nearest neighbour's, and the closest two are ${nm(d.nearestMinDeg)} nm apart. ` +
+      `Your starting archipelago is at least ${nm(d.startNearestDeg)} nm from the next one.`;
+  }
+
+  // New seed and Roll try seeds until the seed rules are met, for up to a second and a half.
+  function chooseSeed() {
+    const result = G.validate({ ...readInput(), seed: 1 });
+    if (!result.ok) { $("seed").value = G.randomSeed(); return; }
+    const minStart = readNumber("minStartNm");
+    const rules = { keepApart: $("keepApart").checked, minStartNm: Number.isFinite(minStart) && minStart > 0 ? minStart : 0 };
+    const found = G.findSeed(result.preset, rules, () => G.randomSeed(), 1500);
+    $("seed").value = found.seed;
+    $("seedStatus").textContent = found.met ? "" : `No seed met the seed rules in ${found.tries} tries, so this one doesn't. Try again, or loosen the rules.`;
+  }
+
+  function roll() {
+    const id = scenarioId();
+    if (!id) return;
+    const limits = readLimits();
+    if (!limitsValid(limits)) { update(); return; }
+    const locks = {};
+    for (const k of Object.keys(LEVERS)) locks[k] = locked(k);
+    const rand = () => { const a = new Uint32Array(1); crypto.getRandomValues(a); return a[0] / 4294967296; };
+    const rolled = G.rollScenario(id, limits, readInput(), locks, rand);
+    if (!rolled) {
+      $("formStatus").textContent = "This scenario couldn't fit around the locked settings. Unlock one and roll again.";
+      return;
+    }
+    $("formStatus").textContent = "";
+    applyInput(rolled);
+    chooseSeed();
+    update();
+  }
+
+  function scenarioHint() {
+    const s = G.SCENARIOS.find((x) => x.id === scenarioId());
+    $("scenarioHint").textContent = s ? s.description : DEFAULT_HINT;
   }
 
   function download(preset) {
     const blob = new Blob([G.toXml(preset)], { type: "application/xml" });
     const url = URL.createObjectURL(blob);
-    const a = Object.assign(document.createElement("a"), { href: url, download: G.fileName(preset.worldScramblerSeed) });
+    const a = Object.assign(document.createElement("a"), { href: url, download: G.fileName(preset.worldScramblerSeed, scenarioId()) });
     document.body.appendChild(a);
     a.click();
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
-  $("form").addEventListener("input", update);
-  $("reroll").addEventListener("click", () => { $("seed").value = G.randomSeed(); update(); });
+  async function copyLink() {
+    const link = location.href.split("#")[0] + "#" + G.toLink(readInput(), scenarioId());
+    try {
+      await navigator.clipboard.writeText(link);
+      $("formStatus").textContent = "Link copied.";
+    } catch (e) {
+      $("formStatus").textContent = link;
+    }
+  }
+
+  let lastState = null;
+  $("form").addEventListener("input", (e) => {
+    if (e.target.id.startsWith("lock-")) return;
+    syncRanges();
+    const moved = brokenLock();
+    if (moved) {
+      restore(lastState);
+      $("formStatus").textContent = `That would change the locked ${LEVERS[moved].name}. Unlock it first.`;
+    } else {
+      $("formStatus").textContent = "";
+      if (WORLD_IDS.includes(e.target.id) && scenarioId()) { $("scenario").value = ""; scenarioHint(); }
+    }
+    $("seedStatus").textContent = "";
+    update();
+    lastState = snapshot();
+  });
+  for (const id of Object.keys(LEVERS)) {
+    $(`lock-${id}`).addEventListener("change", () => { onLockChange(id); lastState = snapshot(); });
+  }
+  $("scenario").addEventListener("change", () => { scenarioHint(); roll(); lastState = snapshot(); });
+  $("roll").addEventListener("click", () => { roll(); lastState = snapshot(); });
+  $("reroll").addEventListener("click", () => { chooseSeed(); update(); lastState = snapshot(); });
+  $("copyLink").addEventListener("click", copyLink);
+  $("resetAll").addEventListener("click", () => {
+    for (const id of Object.keys(LEVERS)) $(`lock-${id}`).checked = false;
+    lockedValues = {};
+    $("scenario").value = "";
+    scenarioHint();
+    $("keepApart").checked = true;
+    $("minStartNm").value = "";
+    applyInput({ lonMin: -180, lonMax: 180, latMin: -70, latMax: 70, worldScale: 1, aspect: null, centerLon: null, centerLat: null,
+      archSpacing: null, islandScale: 1, islandSpacing: null });
+    $("formStatus").textContent = "Settings reset to defaults.";
+    $("seedStatus").textContent = "";
+    update();
+    lastState = snapshot();
+  });
   $("form").addEventListener("submit", (e) => { e.preventDefault(); update(); if (current) download(current); });
+  $("showReal").addEventListener("change", () => { remember.set("showReal", $("showReal").checked ? "1" : "0"); update(); });
+  $("advanced").addEventListener("toggle", () => remember.set("advanced", $("advanced").open ? "1" : "0"));
+
+  $("showReal").checked = remember.get("showReal") === "1";
+  $("advanced").open = remember.get("advanced") === "1";
+  const shared = G.fromLink(location.hash);
+  if (shared) {
+    applyInput(shared.input);
+    if (shared.scenario && G.SCENARIOS.some((s) => s.id === shared.scenario)) $("scenario").value = shared.scenario;
+  }
+  if (!Number.isInteger(readNumber("seed"))) chooseSeed();
+  scenarioHint();
   update();
+  lastState = snapshot();
 })();
 </script>
 </body>
