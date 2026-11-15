@@ -3,7 +3,7 @@
 ## 1.1.0
 
 ### New
-- Several scenario options to help define the type of world you
+- Several scenario options to help define the type of world you want
 - `More settings` for world shape, world centre, archipelago spacing and island spacing
 - A `Reset to defaults` button under more settings
 - The new `Show real positions` button for the preview shows the precise placements of islands with current settings
